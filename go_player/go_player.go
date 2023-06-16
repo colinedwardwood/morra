@@ -21,14 +21,14 @@ type Turn_Response struct {
 }
 
 func make_throw() int {
-	var throw = rand.Intn(5) + 1
+	var throw = rand.Intn(5) + 1 // generate a random throw value
 	return throw
 }
 
 func make_call(throw_value int, player_count int) int {
 	var call = throw_value
 	for i := 0; i < player_count; i++ {
-		call += rand.Intn(5) + 1
+		call += rand.Intn(5) + 1 // generate a random guess for each player in the game and add it to your throw
 	}
 	return call
 }
