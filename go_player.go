@@ -47,6 +47,7 @@ func create_turn(c *gin.Context) {
 		Res_Round_No: turn_request.Req_Player_Count,
 		Res_Throw:    throw,
 		Res_Call:     call}
+
 	c.IndentedJSON(http.StatusOK, response) // serializes the given struct as pretty JSON (indented + endlines) into the response body
 }
 
