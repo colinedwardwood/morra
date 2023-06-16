@@ -52,7 +52,7 @@ func create_turn(c *gin.Context) {
 }
 
 func main() {
-	router := gin.Default() //initialises a router with the default functions.
-	router.POST("/turn", create_turn)
-	router.Run(":8888")
+	router := gin.Default()           // initialises a router with the default functions.
+	router.POST("/turn", create_turn) // initialize the POST endpoint
+	router.Run(":8888")               // run the service
 }
