@@ -13,6 +13,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+// Simple method to avoid committing mongodb password to github
 var password = os.Args[1]
 var uri = "mongodb+srv://admin:" + password + "@cluster0.b1ho5nl.mongodb.net/?retryWrites=true&w=majority"
 
@@ -124,8 +125,7 @@ func record(c *gin.Context) {
 	}
 	roundCol := client.Database("gamehistory").Collection("rounds") // get connection handle to round database and collection
 
-	log.Println("Write the record to MongoDB")
-	log.Println(record_post)
+	// Finally, we write the record to mongodb
 	_, err = roundCol.InsertOne(ctx, record_post) // write the record
 	if err != nil {
 		c.Status(http.StatusInternalServerError) // return status 500 internal service
