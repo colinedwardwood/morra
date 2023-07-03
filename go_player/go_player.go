@@ -117,8 +117,9 @@ func record(c *gin.Context) {
 		log.Println("Error creating MongoDB client.")
 		return
 	}
-	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second) // get connection context object
-	err = client.Connect(ctx)                                           // connect to database using our context
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // get connection context object
+	defer cancel()
+	err = client.Connect(ctx) // connect to database using our context
 	if err != nil {
 		log.Println("Error connecting to MongoDB")
 		return
