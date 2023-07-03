@@ -87,21 +87,12 @@ class Game:
 class Round:
     """
     Defines a round within a game.
+    A round is made up of a number of turns.
+    The init will start the roound and create a turn object for each player.
+    Then it will judge the results of the round.
     """
 
     def __init__(self, game_id, round_no, players) -> None:
-        """
-        --------------------------------------------------
-        USE:
-        - <description>
-        --------------------------------------------------
-        PARAMETERS:
-        <name> - <description> (<datatype>)
-        --------------------------------------------------
-        RETURNS:
-        <name> - <description> (<datatype>)
-        --------------------------------------------------
-        """
         logger.debug("Initializing round")
         self.turns = []
         self.game_id = game_id
@@ -166,22 +157,13 @@ class Round:
 class Turn:
     """
     Defines a turn which is made up of a call (guess) and a throw (fingers).
+    One turn corresponds to the play of a single player.
+    init will start the turn and request the turn from the players api.
+    TODO: add error handling for bad responses
     """
 
     # METHODS
     def __init__(self, game_id, round_no, player) -> None:
-        """
-        --------------------------------------------------
-        USE:
-        - <description>
-        --------------------------------------------------
-        PARAMETERS:
-        <name> - <description> (<datatype>)
-        --------------------------------------------------
-        RETURNS:
-        <name> - <description> (<datatype>)
-        --------------------------------------------------
-        """
         logger.debug("Initializing turn")
         self.game_id = game_id
         self.round_no = round_no
@@ -211,22 +193,17 @@ class Turn:
 
 
 def main():
-
-    # make a game object this will store the record of game
-    # a game is made up of a variable number of rounds
-    # a game continues until one player reaches three points
-    # a point is earned by winning a round
-
+    """
+    make a game object this will store the record of game
+    a game is made up of a variable number of rounds
+    a game continues until one player reaches three points
+    a point is earned by winning a round
+    """
     # TODO figure out how to add players, or do autodiscovery of players
     logger.debug("Application started")
     game = Game()
 
-    # logger.debug("This is a debug log")
-    # logger.info("This is an info log")
-    # logger.critical("This is critical")
-    # logger.error("An error occurred")
     return None
-
 
 if __name__ == "__main__":
     main()
