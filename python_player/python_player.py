@@ -17,9 +17,7 @@ from opentelemetry.sdk.trace.export import (
 PLAYER_ID = "python_player"                            # set player name/id here
 
 # MANUAL TRACING SETUP
-resource = Resource(attributes={
-    SERVICE_NAME: PLAYER_ID + ".bot"
-})
+resource = Resource(attributes={ SERVICE_NAME: PLAYER_ID + ".bot" })
 provider = TracerProvider(resource=resource)
 processor = BatchSpanProcessor(ConsoleSpanExporter())
 provider.add_span_processor(processor)
