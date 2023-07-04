@@ -138,7 +138,8 @@ func record(c *gin.Context) {
 }
 
 func main() {
-	router := gin.Default()        // initialises a router with the default functions.
+	router := gin.Default() // initialises a router with the default functions.
+	// gin.SetMode(gin.ReleaseMode)
 	router.POST("/turn", turn)     // initialize the POST endpoint for turn requests
 	router.POST("/record", record) // initialize the POST endpoint for receiving and recording the round record
 	router.Run(":8888")            // run the service
