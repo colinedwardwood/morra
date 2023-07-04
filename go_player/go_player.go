@@ -123,6 +123,8 @@ func record(c *gin.Context) {
 	if err != nil {
 		log.Println("Error connecting to MongoDB")
 		return
+	} else {
+		log.Println("Connected to MongoDB")
 	}
 	roundCol := client.Database("gamehistory").Collection("rounds") // get connection handle to round database and collection
 
@@ -130,11 +132,16 @@ func record(c *gin.Context) {
 	_, err = roundCol.InsertOne(ctx, record_post) // write the record
 	if err != nil {
 		c.Status(http.StatusInternalServerError) // return status 500 internal service
+		log.Println("Error writing record to MongoDB: ", err)
 	} else {
 		c.Status(http.StatusCreated) // return only status 201 record created
+		log.Println("Record written to MongoDB")
 	}
 
-	defer client.Disconnect(ctx) // defer disconnect until function completes, needed since it's asynchronous connect to mongo
+	defer func() {
+		client.Disconnect(ctx) // defer disconnect until function completes, needed since it's asynchronous connect to mongo
+		log.Println("Disconnected from MongoDB")
+	}()
 }
 
 func main() {
