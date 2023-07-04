@@ -14,7 +14,7 @@ from opentelemetry.sdk.trace.export import (
 )
 
 # CONSTANTS
-PLAYER_ID = "snake_random"                            # set player name/id here
+PLAYER_ID = "python_player"                            # set player name/id here
 
 # MANUAL TRACING SETUP
 resource = Resource(attributes={
