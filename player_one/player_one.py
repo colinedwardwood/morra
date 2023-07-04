@@ -54,7 +54,7 @@ def make_call(throw_value, player_count) -> int:
         logger.debug("Generating call")
 
         call = throw_value + player_count
-
+        
         logger.debug("Call generated")
         call_span.set_attribute("player.id", PLAYER_ID)
         call_span.set_attribute("call.value", call)
@@ -80,19 +80,20 @@ app = FastAPI()
 @app.post("/turn/")
 async def create_turn(turn_request: Turn_Request):
     logger.debug("Turn request received")
-    logger.debug("Trying throw")
 
+    logger.debug("Trying throw")
     throw_value = make_throw()
 
+    logger.debug("Trying call")
     call_value = make_call(throw_value, turn_request.player_count)
 
-    logger.debug("turn response sent")
     current_span = trace.get_current_span()
     current_span.set_attribute("game.id", turn_request.game_id)
     current_span.set_attribute("player.id", PLAYER_ID)
     current_span.set_attribute("throw.value", throw_value)
     current_span.set_attribute("call.value", call_value)
 
+    logger.debug("Returning Turn_Reponse object")
     return [Turn_Response(game_id=turn_request.game_id,
                           round_no=turn_request.round_no,
                           player_id=PLAYER_ID,
