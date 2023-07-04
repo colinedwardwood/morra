@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log"
 	"math/rand"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -14,8 +14,8 @@ import (
 )
 
 // Simple method to avoid committing mongodb password to github
-var password = os.Args[1]
-var uri = "mongodb+srv://admin:" + password + "@cluster0.b1ho5nl.mongodb.net/?retryWrites=true&w=majority"
+var portFlag = flag.Int("port", 8888, "Port to listen on, default is 8888")
+var uriFlag = flag.String("uri", "null", "MongoDB Atlas connection string, if unspecified, no record of games will be written.")
 
 type Turn_Request struct {
 	Req_Game_ID      string `json:"reqgameid"`
@@ -96,55 +96,74 @@ func turn(c *gin.Context) {
 }
 
 func record(c *gin.Context) {
-	// The post method will send a json object which will be in the gin.Context
-	// Context is the most important part of gin. It allows us to pass variables
-	// between middleware, manage the flow, validate the JSON of a request and render a JSON response for example.
-	log.Println("Bind received JSON to gin context")
-	var record_post Record_Post                      // variable to store json post data received
-	if err := c.BindJSON(&record_post); err != nil { // Call BindJSON to bind the received JSON to record_post
-		log.Println("Error binding JSON")
-		return
-	}
+	if *uriFlag == "null" {
+		log.Println("No MongoDB connection string specified, not recording game history.")
+		c.String(http.StatusForbidden, "No MongoDB connection string specified, not recording game history.")
 
-	// We're going to write the posted data to mongodb, we need a mongoclient object that points to our mongo atlas db (saas)
-	// The MongoDB Go Driver uses the context package from Go's standard library to allow applications to signal timeouts and
-	// cancellations for any blocking method call. A blocking method relies on an external event, such as a network input or output,
-	// to proceed with its task. We want to perform an insert operation on on mongodb within 10 seconds, so we use a Context with
-	// a timeout. If the operation doesn't complete within the timeout, the method returns an error.
-	log.Println("Create MongoDB context")
-	client, err := mongo.NewClient(options.Client().ApplyURI(uri)) // get mongo client object
-	if err != nil {
-		log.Println("Error creating MongoDB client.")
-		return
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // get connection context object
-	defer cancel()
-	err = client.Connect(ctx) // connect to database using our context
-	if err != nil {
-		log.Println("Error connecting to MongoDB")
-		return
 	} else {
-		log.Println("Connected to MongoDB")
-	}
-	roundCol := client.Database("gamehistory").Collection("rounds") // get connection handle to round database and collection
+		log.Println("MongoDB connection string specified, attempting to record game history.")
 
-	// Finally, we write the record to mongodb
-	_, err = roundCol.InsertOne(ctx, record_post) // write the record
-	if err != nil {
-		c.Status(http.StatusInternalServerError) // return status 500 internal service
-		log.Println("Error writing record to MongoDB: ", err)
-	} else {
-		c.Status(http.StatusCreated) // return only status 201 record created
-		log.Println("Record written to MongoDB")
-	}
+		// The post method will send a json object which will be in the gin.Context
+		// Context is the most important part of gin. It allows us to pass variables
+		// between middleware, manage the flow, validate the JSON of a request and render a JSON response for example.
+		log.Println("Bind received JSON to gin context")
+		var record_post Record_Post                      // variable to store json post data received
+		if err := c.BindJSON(&record_post); err != nil { // Call BindJSON to bind the received JSON to record_post
+			log.Println("Error binding JSON")
+			return
+		}
 
-	defer func() {
-		client.Disconnect(ctx) // defer disconnect until function completes, needed since it's asynchronous connect to mongo
-		log.Println("Disconnected from MongoDB")
-	}()
+		// We're going to write the posted data to mongodb, we need a mongoclient object that points to our mongo atlas db (saas)
+		// The MongoDB Go Driver uses the context package from Go's standard library to allow applications to signal timeouts and
+		// cancellations for any blocking method call. A blocking method relies on an external event, such as a network input or output,
+		// to proceed with its task. We want to perform an insert operation on on mongodb within 10 seconds, so we use a Context with
+		// a timeout. If the operation doesn't complete within the timeout, the method returns an error.
+		log.Println("Create MongoDB context")
+		client, err := mongo.NewClient(options.Client().ApplyURI(*uriFlag)) // get mongo client object
+		if err != nil {
+			log.Println("Error creating MongoDB client.")
+			return
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // get connection context object
+		defer cancel()                                                           // cancel context when function completes
+		err = client.Connect(ctx)                                                // connect to database using our context
+		if err != nil {
+			log.Println("Error connecting to MongoDB")
+			return
+		} else {
+			log.Println("Connected to MongoDB")
+		}
+		roundCol := client.Database("gamehistory").Collection("rounds") // get connection handle to round database and collection
+
+		// Finally, we write the record to mongodb
+		_, err = roundCol.InsertOne(ctx, record_post) // write the record
+		if err != nil {
+			c.Status(http.StatusInternalServerError) // return status 500 internal service
+			log.Println("Error writing record to MongoDB: ", err)
+		} else {
+			c.Status(http.StatusCreated) // return only status 201 record created
+			log.Println("Record written to MongoDB")
+		}
+
+		defer func() {
+			client.Disconnect(ctx) // defer disconnect until function completes, needed since it's asynchronous connect to mongo
+			log.Println("Disconnected from MongoDB")
+		}()
+	}
 }
 
 func main() {
+	flag.Parse()
+	if *portFlag == 8888 {
+		log.Println("Application starting with default port 8888")
+	} else {
+		log.Println("Application starting with port flag(s): ", *portFlag)
+	}
+	if *uriFlag == "null" {
+		log.Println("Application starting without MongoDB")
+	} else {
+		log.Println("Application starting with MongoDB URI provided")
+	}
 	router := gin.Default() // initialises a router with the default functions.
 	// gin.SetMode(gin.ReleaseMode)
 	router.POST("/turn", turn)     // initialize the POST endpoint for turn requests

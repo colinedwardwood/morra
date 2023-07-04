@@ -1,4 +1,6 @@
 node_modules
 
-player_two/__pycache__/
-player_one/__pycache__/
+python_player/__pycache__/
+run.sh
+.gitignore
+go_player/go_player
