@@ -6,6 +6,7 @@ import requests     # for requesting turns from player apis
 import nanoid       # for generating player ids
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.instrumentation.requests import RequestsInstrumentor
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import (
@@ -18,6 +19,7 @@ logging.basicConfig(format='%(asctime)s,%(msecs)03d %(levelname)-8s [%(filename)
                     level=logging.DEBUG)
 
 logger = logging.getLogger(__name__)
+RequestsInstrumentor().instrument()
 
 # MANUAL TRACING SETUP
 resource = Resource(attributes={ SERVICE_NAME: "morra-game" })
