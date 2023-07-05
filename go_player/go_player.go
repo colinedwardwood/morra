@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"log"
 	"math/rand"
@@ -32,10 +33,11 @@ type Turn_Request struct {
 }
 
 type Turn_Response struct {
-	Res_Game_ID  string `json:"resgameid"`
-	Res_Round_No int    `json:"resroundno"`
-	Res_Throw    int    `json:"resthrow"`
-	Res_Call     int    `json:"rescall"`
+	Res_Game_ID   string `json:"resgameid"`
+	Res_Round_No  int    `json:"resroundno"`
+	Res_Player_ID string `json:"resplayerid"`
+	Res_Throw     int    `json:"resthrow"`
+	Res_Call      int    `json:"rescall"`
 }
 
 type Record_Post struct {
@@ -66,23 +68,37 @@ type Record_Post struct {
 }
 
 func make_throw() int {
-	var throw = rand.Intn(5) + 1 // generate a random throw value
+	log.Println("Making throw")
+	var throw = rand.Intn(5) + 1                 // generate a random throw value
+	log.Println("Throw: " + strconv.Itoa(throw)) // log the throw value
 	return throw
 }
 
 func make_call(throw_value int, player_count int) int {
+	log.Println("Making call")
+	log.Println("Player count: " + strconv.Itoa(player_count)) // log the player count
+	log.Println("Throw value: " + strconv.Itoa(throw_value))   // log the throw value
 	var call = throw_value
 	for i := 0; i < player_count; i++ {
 		call += rand.Intn(5) + 1 // generate a random guess for each player in the game and add it to your throw
 	}
+	log.Println("Call: " + strconv.Itoa(call)) // log the call value
 	return call
 }
 
 func turn(c *gin.Context) {
+	log.Println("Turn request received")
 	var turn_request Turn_Request                     // variable to store json request
 	if err := c.BindJSON(&turn_request); err != nil { // Call BindJSON to bind the received JSON to turn_request
+		log.Println("Error binding JSON")
 		return
 	}
+
+	request_json, err := json.Marshal(turn_request) // convert request body to json
+	if err != nil {
+		log.Println("Error marshalling request to JSON")
+	}
+	log.Println("Request: " + string(request_json)) // log the request body
 
 	throw := make_throw()                                   // generate a random throw value
 	call := make_call(throw, turn_request.Req_Player_Count) // generate a call value based on number of players
@@ -92,8 +108,12 @@ func turn(c *gin.Context) {
 		Res_Round_No: turn_request.Req_Player_Count,
 		Res_Throw:    throw,
 		Res_Call:     call}
-
-	c.IndentedJSON(http.StatusOK, response) // serializes the given struct as pretty JSON (indented + endlines) into the response body
+	response_json, err := json.Marshal(response) // convert response body to json
+	if err != nil {
+		log.Println("Error marshalling response to JSON")
+	}
+	log.Println("Response: " + string(response_json)) // log the response body
+	c.IndentedJSON(http.StatusOK, response)           // serializes the given struct as pretty JSON (indented + endlines) into the response body
 }
 
 func record(c *gin.Context) {
