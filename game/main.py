@@ -5,6 +5,7 @@ import uuid         # for generating game ids
 import requests     # for requesting turns from player apis
 import nanoid       # for generating player ids
 from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import (
@@ -19,9 +20,10 @@ logging.basicConfig(format='%(asctime)s,%(msecs)03d %(levelname)-8s [%(filename)
 logger = logging.getLogger(__name__)
 
 # MANUAL TRACING SETUP
-resource = Resource(attributes={ SERVICE_NAME: "game" })
+resource = Resource(attributes={ SERVICE_NAME: "morra-game" })
 provider = TracerProvider(resource=resource)
-processor = BatchSpanProcessor(ConsoleSpanExporter())
+# processor = BatchSpanProcessor(ConsoleSpanExporter()) # for local testing
+processor = BatchSpanProcessor(OTLPSpanExporter(endpoint="localhost:4317", insecure=True))
 provider.add_span_processor(processor)
 trace.set_tracer_provider(provider)
 tracer = trace.get_tracer("game.tracer")      # aquire tracer
@@ -101,6 +103,7 @@ class Game:
                 if p.score == 3:
                     logger.debug("Game won by " + p.get_name())
                     winner = True
+                    break
                 else:
                     logger.debug("No winner yet")
         logger.debug("Game over")
