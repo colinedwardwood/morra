@@ -4,7 +4,6 @@ import logging      # for logging
 import uuid         # for generating game ids
 import requests     # for requesting turns from player apis
 import nanoid       # for generating player ids
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry import trace
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.sdk.trace import TracerProvider
@@ -63,7 +62,7 @@ class Game:
         with tracer.start_as_current_span("game_init") as game_init_span:
             logger.debug("Initializing game")
             self.game_id = uuid.uuid4()
-            game_init_span.set_attribute("game.id", self.game_id)
+            game_init_span.set_attribute("game.id", str(self.game_id))
             self.round_no = 0
             self.players = []
             self.rounds = []
@@ -88,12 +87,11 @@ class Game:
     def play(self):
         logger.debug("Starting game play")
 
-        logger.debug("Round: " + str(self.round_no))
-
         winner = False
         while not winner:
             self.round_no += 1
             logger.debug("Trying to start round")
+            logger.debug("Round: " + str(self.round_no))
             round = Round(self.game_id, self.round_no, self.players)
             self.rounds.append(round)
             logger.debug("Round complete")
@@ -103,6 +101,8 @@ class Game:
                 if p.score == 3:
                     logger.debug("Game won by " + p.get_name())
                     winner = True
+                else:
+                    logger.debug("No winner yet")
         logger.debug("Game over")
         return None
 
@@ -126,7 +126,7 @@ class Round:
             logger.debug("Initializing round")
             self.turns = []
             self.game_id = game_id
-            round_init_span.set_attribute("round.game_id", self.game_id)
+            round_init_span.set_attribute("round.game_id", str(self.game_id))
             self.round_no = round_no
             round_init_span.set_attribute("round.round_no", self.round_no)
             self.player_count = len(players)
@@ -140,7 +140,7 @@ class Round:
             logger.debug("Judging round - totalling throws and checking calls")
             self._total_throws()            # judge the results
             self._check_calls()             # check guesses against round total
-
+            self._post_summary()            # post the round summary to the players
             return None
 
     def _take_turns(self) -> None:
@@ -181,6 +181,24 @@ class Round:
                       }
         return round_dict
 
+    @tracer.start_as_current_span("round_post_summary")
+    def _post_summary(self) -> None:
+        logger.debug("Posting round summary")
+        _round_record = self.get_round_dict()
+        for i in range(0, self.player_count):
+            logger.debug("Posting round record to player " + str(i+1))
+            try:
+                self._response = requests.post(self.players[i].get_url()+"/record/", json=_round_record).json()
+            except requests.exceptions.Timeout:
+                # Maybe set up for a retry, or continue in a retry loop
+                logger.error("Timeout error posting round record to player " + str(i+1))
+            except requests.exceptions.TooManyRedirects:
+                # Tell the user their URL was bad and try a different one
+                logger.error("Too many redirects error posting round record to player " + str(i+1))
+            except requests.exceptions.RequestException as e:
+                # catastrophic error. bail.
+                logger.error("Catastrophic error posting round record to player " + str(i+1))
+        return None
 
 class Turn:
     """
@@ -197,15 +215,15 @@ class Turn:
         self.round_no = round_no
         self.player = player
         logger.debug("Generating Request Body")
-        request_body = {"game_id": str(self.game_id),
-                        "round_no": self.round_no,
-                        "player_count": 2}
+        request_body = {"reqgameid": str(self.game_id),
+                        "reqroundno": self.round_no,
+                        "reqplayercount": 2}
         logger.debug("Request body: " + str(request_body))
         logger.debug("Requesting turn from player " + self.player.get_name() + " at " + self.player.get_url() + "/turn/")
         self._response = requests.post(player.get_url()+"/turn/", json=request_body).json()
         logger.debug("Request response: " + str(self._response))
-        self.throw = self._response[0]["throw"]
-        self.call = self._response[0]["call"]
+        self.throw = self._response["resthrow"]
+        self.call = self._response["rescall"]
         return None
 
     @tracer.start_as_current_span("turn_get_turn_dict")
