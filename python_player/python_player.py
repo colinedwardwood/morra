@@ -33,16 +33,16 @@ logger = logging.getLogger(__name__)
 
 
 class Turn_Request(BaseModel):
-    game_id: str
-    round_no: int
-    player_count: int
+    reqgameid: str
+    reqroundno: int
+    reqplayercount: int
 
 
 class Turn_Response(BaseModel):
-    game_id: str
-    round_no: int
-    throw: int
-    call: int
+    resgameid: str
+    resroundno: int
+    resthrow: int
+    rescall: int
 
 
 def make_call(throw_value, player_count) -> int:
@@ -83,19 +83,19 @@ async def create_turn(turn_request: Turn_Request):
     throw_value = make_throw()
 
     logger.debug("Trying call")
-    call_value = make_call(throw_value, turn_request.player_count)
+    call_value = make_call(throw_value, turn_request.reqplayercount)
 
     current_span = trace.get_current_span()
-    current_span.set_attribute("game.id", turn_request.game_id)
+    current_span.set_attribute("game.id", turn_request.reqgameid)
     current_span.set_attribute("player.id", PLAYER_ID)
     current_span.set_attribute("throw.value", throw_value)
     current_span.set_attribute("call.value", call_value)
 
     logger.debug("Returning Turn_Reponse object")
-    return [Turn_Response(game_id=turn_request.game_id,
-                          round_no=turn_request.round_no,
-                          player_id=PLAYER_ID,
-                          throw=throw_value,
-                          call=call_value)]
+    return Turn_Response(resgameid=turn_request.reqgameid,
+                          resroundno=turn_request.reqroundno,
+                          resplayerid=PLAYER_ID,
+                          resthrow=throw_value,
+                          rescall=call_value)
 
 FastAPIInstrumentor.instrument_app(app)
