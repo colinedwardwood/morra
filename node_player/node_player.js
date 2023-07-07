@@ -21,9 +21,9 @@ app.post("/turn", function(request, response) {
 });
 
 // handle the call to the record end point, discard the post and return 200 OK
-app.post("/record", function(request, response) {
-    response.status(200);
-})
+// app.post("/record", function(request, response) {
+//     response.status(200);
+// })
 
 //Start the server and make it listen for connections on port 8080
 app.listen(8889);
