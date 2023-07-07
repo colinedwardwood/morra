@@ -1,7 +1,8 @@
 // this is the simplest player, simply generates throws and calls and doesn't 
 // record the record of play to a database at this time
 
-// Winston is used for logging
+// Logging Setup
+// We will use the winston logging library to log to the console
 const { createLogger, format, transports, log } = require("winston"); // import winston
 const logLevels = {  // set our own log levels
   fatal: 0,
