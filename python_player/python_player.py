@@ -6,6 +6,7 @@ from random import randint
 import logging
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import (
@@ -19,7 +20,8 @@ PLAYER_ID = "python_player"                            # set player name/id here
 # MANUAL TRACING SETUP
 resource = Resource(attributes={ SERVICE_NAME: PLAYER_ID + ".bot" })
 provider = TracerProvider(resource=resource)
-processor = BatchSpanProcessor(ConsoleSpanExporter())
+# processor = BatchSpanProcessor(ConsoleSpanExporter()) # for local testing
+processor = BatchSpanProcessor(OTLPSpanExporter(endpoint="localhost:4317", insecure=True))
 provider.add_span_processor(processor)
 trace.set_tracer_provider(provider)
 tracer = trace.get_tracer("player_turn.tracer")      # aquire tracer
