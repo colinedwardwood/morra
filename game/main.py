@@ -84,6 +84,7 @@ class Game:
         logger.debug("Adding players to game")
         self.players.append(Player("python_player", "http://localhost:8000"))
         self.players.append(Player("go_player", "http://localhost:8888"))
+        self.players.append(Player("node_player", "http://localhost:8889"))
         logger.debug("Players added to game")
         return None
 
