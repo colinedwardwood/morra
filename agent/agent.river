@@ -9,7 +9,8 @@ otelcol.receiver.otlp "default" {
 	output {
 		metrics = [otelcol.processor.batch.default.input]
 		logs    = [otelcol.processor.batch.default.input]
-		traces  = [otelcol.processor.batch.default.input]
+		traces  = [otelcol.processor.tail_sampling.default.input]
+		// traces  = [otelcol.processor.batch.default.input]
 	}
 }
 
@@ -18,7 +19,7 @@ otelcol.processor.batch "default" {
 	output {
 		metrics = [otelcol.exporter.prometheus.grafana_cloud_prometheus.input]
 		logs    = [otelcol.exporter.loki.grafana_cloud_loki.input]
-		traces  = [otelcol.processor.tail_sampling.default.input]
+		traces  = [otelcol.exporter.otlp.grafana_cloud_tempo.input]
 	}
 }
 
@@ -70,8 +71,6 @@ otelcol.auth.basic "grafana_cloud_tempo" {
 	password = env("GRAFANA_CLOUD_API_KEY")
 }
 
-
-
 otelcol.processor.tail_sampling "default" {
   decision_wait               = "1s"
   num_traces                  = 10
@@ -90,7 +89,7 @@ otelcol.processor.tail_sampling "default" {
   }
 
   output {
-    traces = [otelcol.exporter.otlp.grafana_cloud_tempo.input]
+    traces = [otelcol.processor.batch.default.input]
   }
 }
 
