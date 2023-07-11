@@ -196,7 +196,7 @@ func record(c *gin.Context) {
 	if *uriFlag == "null" {
 		log.Println("No MongoDB connection string specified, not recording game history.")
 		c.String(http.StatusForbidden, "No MongoDB connection string specified, not recording game history.")
-		span.SetAttributes(attribute.String("Result", "No mongodb connection string provided."))
+		span.SetAttributes(attribute.String("Record", "No mongodb connection string provided, round will not be recorded."))
 	} else {
 		log.Println("MongoDB connection string specified, attempting to record game history.")
 		var record_post Record_Post                      // variable to store json post data received
@@ -228,9 +228,11 @@ func record(c *gin.Context) {
 		if err != nil {
 			c.Status(http.StatusInternalServerError) // return status 500 internal service
 			log.Println("Error writing record to MongoDB: ", err)
+			span.SetAttributes(attribute.String("Record", "Error, round not successfully written to database."))
 		} else {
 			c.Status(http.StatusCreated) // return only status 201 record created
 			log.Println("Record written to MongoDB")
+			span.SetAttributes(attribute.String("Record", "Round successfully written to database."))
 		}
 
 		// defer disconnect until function completes, needed since it's asynchronous connect to mongo
