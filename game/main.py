@@ -187,24 +187,27 @@ class Round:
                       }
         return round_dict
 
-    @tracer.start_as_current_span("round_post_summary")
     def _post_summary(self) -> None:
-        logger.debug("Posting round summary")
-        _round_record = self.get_round_dict()
-        for i in range(0, self.player_count):
-            logger.debug("Posting round record to player " + str(i+1))
-            try:
-                self._response = requests.post(self.players[i].get_url()+"/record/", json=_round_record).json()
-            except requests.exceptions.Timeout:
-                # Maybe set up for a retry, or continue in a retry loop
-                logger.error("Timeout error posting round record to player " + str(i+1))
-            except requests.exceptions.TooManyRedirects:
-                # Tell the user their URL was bad and try a different one
-                logger.error("Too many redirects error posting round record to player " + str(i+1))
-            except requests.exceptions.RequestException as e:
-                # catastrophic error. bail.
-                logger.error("Catastrophic error posting round record to player " + str(i+1))
-        return None
+        with tracer.start_as_current_span("round_post_summary") as round_post_summary_span:
+            logger.debug("Posting round summary")
+            _round_record = self.get_round_dict()
+            for i in range(0, self.player_count):
+                logger.debug("Posting round record to player " + str(i+1))
+                try:
+                    self._response = requests.post(self.players[i].get_url()+"/record/", json=_round_record)
+                    _status_code = self._response.status_code
+                    _json_response = self._response.json()
+                except requests.exceptions.Timeout:
+                    # Maybe set up for a retry, or continue in a retry loop
+                    logger.error("Timeout error posting round record to player " + str(i+1))
+                except requests.exceptions.TooManyRedirects:
+                    # Tell the user their URL was bad and try a different one
+                    logger.error("Too many redirects error posting round record to player " + str(i+1))
+                except requests.exceptions.RequestException as e:
+                    # catastrophic error. bail.
+                    logger.error("Catastrophic error posting round record to player " + str(i+1))
+                    round_post_summary_span.set_attribute("Status", str(_status_code) + " " + _json_response["detail"])
+            return None
 
 class Turn:
     """
