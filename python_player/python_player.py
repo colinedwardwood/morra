@@ -1,9 +1,15 @@
-# python_player.py
+# This is the second simplest player, simply generates throws and calls and doesn't 
+# record the record of play to a database at this time but is manually instrumented for tracing
+# Metrics are generated 
+# Logging is done using the logging library
+# Traceability is done using manual instrumentation and the FastAPIInstrumentor
 
 from fastapi import FastAPI
 from pydantic import BaseModel
 from random import randint
 import logging
+from prometheus_client import Histogram
+from prometheus_fastapi_instrumentator import Instrumentator
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
@@ -17,21 +23,23 @@ from opentelemetry.sdk.trace.export import (
 # CONSTANTS
 PLAYER_ID = "python_player"                            # set player name/id here
 
-# MANUAL TRACING SETUP
+# TRACING SETUP
 resource = Resource(attributes={ SERVICE_NAME: PLAYER_ID + ".bot" })
 provider = TracerProvider(resource=resource)
-# processor = BatchSpanProcessor(ConsoleSpanExporter()) # for local testing
 processor = BatchSpanProcessor(OTLPSpanExporter(endpoint="localhost:4317", insecure=True))
 provider.add_span_processor(processor)
 trace.set_tracer_provider(provider)
 tracer = trace.get_tracer("player_turn.tracer")      # aquire tracer
 
-# CONFIGURE TRADITIONAL LOGGING FORMAT
+# LOGGING SETUP
 logging.basicConfig(
     format='%(asctime)s,%(msecs)03d %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s',
     datefmt='%Y-%m-%d:%H:%M:%S',
     level=logging.DEBUG)
 logger = logging.getLogger(__name__)
+
+# METRICS SETUP
+morra_throw_value = Histogram('morra_throw_value', 'Throws made by node_player.bot',buckets=[1, 2, 3, 4, 5,])
 
 
 class Turn_Request(BaseModel):
@@ -48,12 +56,11 @@ class Turn_Response(BaseModel):
 
 
 def make_call(throw_value, player_count) -> int:
-    # call cannot be random
     # call must: be greater than throw_value + player_count
     with tracer.start_as_current_span("make_call") as call_span:
         logger.debug("Generating call")
 
-        call = throw_value + player_count
+        call = throw_value + (player_count * randint(1, 5))
         
         logger.debug("Call generated")
         call_span.set_attribute("player.id", PLAYER_ID)
@@ -74,10 +81,12 @@ def make_throw() -> int:
         return throw
 
 
+# Initialize the FastAPI app and instrument it with Prometheus
 app = FastAPI()
+Instrumentator().instrument(app).expose(app) # Expose metrics for /metrics endpoint
 
 
-@app.post("/turn/")
+@app.post("/turn/")  # the turn endpoint used to receive turn requests and respond with turn: call and throw
 async def create_turn(turn_request: Turn_Request):
     logger.debug("Turn request received")
 
@@ -87,13 +96,16 @@ async def create_turn(turn_request: Turn_Request):
     logger.debug("Trying call")
     call_value = make_call(throw_value, turn_request.reqplayercount)
 
+    # tracing
     current_span = trace.get_current_span()
     current_span.set_attribute("game.id", turn_request.reqgameid)
     current_span.set_attribute("player.id", PLAYER_ID)
     current_span.set_attribute("throw.value", throw_value)
     current_span.set_attribute("call.value", call_value)
-
+    # metrics
+    morra_throw_value.observe(throw_value)    # Observe 4.7 (seconds in this case)
     logger.debug("Returning Turn_Reponse object")
+
     return Turn_Response(resgameid=turn_request.reqgameid,
                           resroundno=turn_request.reqroundno,
                           resplayerid=PLAYER_ID,
