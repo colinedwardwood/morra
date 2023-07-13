@@ -1,8 +1,11 @@
-// this is the simplest player, simply generates throws and calls and doesn't 
+// This is the simplest player, simply generates throws and calls and doesn't 
 // record the record of play to a database at this time
+// Metrics are generated using the prom-client library and exposed on the /metrics endpoint
+// Logging is done using the winston library
+// Traceability is done using automatic instrumentation of the express framework using the opentelemetry library
 
-// This is the name of the application, used in logging and metrics
-const app_name = "node_player.bot"
+// Global Variables
+const app_name = "node_player.bot" // This is the name of the application, used in logging and metrics
 
 // Metrics Setup
 // We will use the prom-client library to record metrics
