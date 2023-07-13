@@ -60,7 +60,7 @@ def make_call(throw_value, player_count) -> int:
     with tracer.start_as_current_span("make_call") as call_span:
         logger.debug("Generating call")
 
-        call = throw_value + (player_count * randint(1, 5))
+        call = throw_value + ((player_count - 1) * randint(1, 5))
         
         logger.debug("Call generated")
         call_span.set_attribute("player.id", PLAYER_ID)
