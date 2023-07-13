@@ -1,9 +1,14 @@
 # main.py
 
-import logging      # for logging
-import uuid         # for generating game ids
-import requests     # for requesting turns from player apis
-import nanoid       # for generating player ids
+import argparse         # for parsing command line arguments
+import logging          # for logging
+import uuid             # for generating game ids
+import requests         # for requesting turns from player apis
+import nanoid           # for generating player ids
+from rich import print  # for pretty printing
+from rich.console import Console 
+from rich.columns import Columns
+from rich.panel import Panel
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
@@ -14,10 +19,12 @@ from opentelemetry.sdk.trace.export import (
     ConsoleSpanExporter,
 )
 
+# LOGGING SETUP
 logging.basicConfig(format='%(asctime)s,%(msecs)03d %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s',
                     datefmt='%Y-%m-%d:%H:%M:%S',
-                    level=logging.DEBUG)
-
+                    filename='example.log',
+                    filemode='w',
+                    level=logging.INFO)
 logger = logging.getLogger(__name__)
 RequestsInstrumentor().instrument()
 
@@ -29,6 +36,34 @@ processor = BatchSpanProcessor(OTLPSpanExporter(endpoint="localhost:4317", insec
 provider.add_span_processor(processor)
 trace.set_tracer_provider(provider)
 tracer = trace.get_tracer("game.tracer")      # aquire tracer
+
+# ARGUMENT PARSING
+logger.debug("Initializing application and parsing arguments") # Log the start of the application
+parser = argparse.ArgumentParser()  # Create the parser
+parser.add_argument('-i', '--interactive',  # Add an argument for interactive mode
+                    action='store_const',
+                    dest='interactive',
+                    const=True,
+                    default=False,
+                    required=False, 
+                    help='Add this option to run in interactive mode, default is non-interactive mode.')
+parser.add_argument('-d','--debug',  # Add an argument for debug mode
+                    action='store_const',
+                    dest='debug',
+                    const=True,
+                    default=False,
+                    required=False,
+                    help='Add this option to r un in debug mode, default is non-debug mode.')
+args = parser.parse_args()  # Parse the argument
+logger.debug("Application started with arguments: " + str(args)) # Log the arguments
+if args.debug:
+    logger.info("Debug mode enabled")
+    logger.setLevel(logging.DEBUG)
+else:
+    logger.info("Debug mode disabled")
+    logger.setLevel(logging.INFO)
+if args.interactive:
+    console = Console()
 
 class Player:
     def __init__(self, player_name, player_url) -> None:
@@ -59,6 +94,10 @@ class Player:
     @tracer.start_as_current_span("player_get_name")
     def get_name(self) -> str:
         return self.player_name
+    
+    @tracer.start_as_current_span("player_get_score")
+    def get_score(self) -> int:
+        return self.score
 
 
 class Game:
@@ -87,6 +126,20 @@ class Game:
         self.players.append(Player("node_player", "http://localhost:8889"))
         logger.debug("Players added to game")
         return None
+    
+    @tracer.start_as_current_span("_game_print_game_summary")
+    def _print_game_summary(self) -> None:
+        logger.debug("Printing game summary")
+        panels = []  # create list of panels
+        panels.append(Panel(f"WINNER!\n", expand=True, width=20))  # add round total panel
+        for p in self.players:
+            a = f"[green]{p.get_name()}[/green]" if p.get_score() == 3 else f"[white]{p.get_name()}[/white]"  # set colour of player name if they guessed correctly
+            b = f"[green]Final Score: {str(p.get_score())}[/green]" if p.get_score() == 3 else f"Final Score: {str(p.get_score())}"
+            c = a + "\n" + b  # set panel text
+            panels.append(Panel(c, expand=True, width=30))  # add panel to list
+        
+        console.print(Columns(panels))  # print the panels
+        return None
 
     @tracer.start_as_current_span("game_play")
     def play(self):
@@ -105,6 +158,8 @@ class Game:
             for p in self.players:
                 if p.score == 3:
                     logger.debug("Game won by " + p.get_name())
+                    if args.interactive:
+                        self._print_game_summary()
                     winner = True
                     break
                 else:
@@ -129,6 +184,8 @@ class Round:
     """
     def __init__(self, game_id, round_no, players) -> None:
         with tracer.start_as_current_span("round_init") as round_init_span:
+
+            # Initialize the round and set trace attributes
             logger.debug("Initializing round")
             self.turns = []
             self.game_id = game_id
@@ -141,12 +198,14 @@ class Round:
             self.correct_guesses = 0
             self.players = players
 
+            # Play the round
             logger.debug("Starting round - taking turns")
             self._take_turns()              # call the web services to get each players throw and call
             logger.debug("Judging round - totalling throws and checking calls")
             self._total_throws()            # judge the results
             self._check_calls()             # check guesses against round total
             self._post_summary()            # post the round summary to the players
+            if args.interactive: self._print_round_summary()
             return None
 
     def _take_turns(self) -> None:
@@ -187,6 +246,9 @@ class Round:
                       }
         return round_dict
 
+    def get_round_total(self) -> int:
+        return self.throw_total
+    
     def _post_summary(self) -> None:
         with tracer.start_as_current_span("round_post_summary") as round_post_summary_span:
             logger.debug("Posting round summary")
@@ -208,6 +270,20 @@ class Round:
                     logger.error("Catastrophic error posting round record to player " + str(i+1))
                     round_post_summary_span.set_attribute("Status", str(_status_code) + " " + _json_response["detail"])
             return None
+
+    def _print_round_summary(self) -> None:
+        r = self.get_round_dict()     # get round outcomes
+        tot = self.get_round_total()  # get round total
+        panels = []  # build empty panel list
+        panels.append(Panel(f"[bold]Round {r['round_no']}[/bold]\nTotal {tot}", expand=True, width=20))  # add round total panel
+        for t in r["turns"]:  # add a panel for each turn
+            a = f"[green]{t['player_id']}[/green]" if tot == t["call"] else f"[white]{t['player_id']}[/white]"  # set colour of player name if they guessed correctly
+            b = f"Throw: {str(t['throw'])} Call: {str(t['call'])}"  # set throw and call text
+            c = a + "\n" + b  # set panel text
+            panels.append(Panel(c, expand=True, width=30))  # add panel to list
+        
+        console.print(Columns(panels))  # print the panels
+        return None
 
 class Turn:
     """
@@ -237,7 +313,7 @@ class Turn:
 
     @tracer.start_as_current_span("turn_get_turn_dict")
     def get_turn_dict(self) -> dict:
-        turn_dict = {"player_id": self.player.player_id, 
+        turn_dict = {"player_id": self.player.player_name, 
                      "throw": self.throw,
                      "call": self.call}
         return turn_dict
@@ -247,6 +323,7 @@ class Turn:
         logger.debug("Getting turn player")
         return self.player
 
+
 @tracer.start_as_current_span("main")
 def main():
     """
@@ -255,9 +332,12 @@ def main():
     a game continues until one player reaches three points
     a point is earned by winning a round
     """
-    # TODO figure out how to add players, or do autodiscovery of players
-    logger.debug("Application started")
+    
+    # if args.interactive:
+    #     cont = True
+    #     while cont:
     game = Game()
+
 
     return None
 
