@@ -1,0 +1,11 @@
+opentelemetry-api==1.18.0
+opentelemetry-instrumentation==0.39b0
+opentelemetry-sdk==1.18.0
+requests==2.31.0
+nanoid==2.0.0
+opentelemetry-exporter-otlp-proto-grpc==1.18.0
+opentelemetry-instrumentation-requests
+argparse
+rich
+
+
