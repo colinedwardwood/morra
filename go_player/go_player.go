@@ -277,8 +277,8 @@ func main() {
 	}
 
 	// Run the Gin server
-	router := gin.Default()                               // initialises a router with default middleware
 	gin.SetMode(gin.ReleaseMode)                          // set this flag once you are ready to deploy the application in production
+	router := gin.Default()                               // initialises a router with default middleware
 	router.Use(otelgin.Middleware("go_player.bot"))       // add otel middleware to the router
 	router.POST("/turn", turn)                            // initialize the POST endpoint for turn requests
 	router.POST("/record", record)                        // initialize the POST endpoint for receiving and recording the round record
