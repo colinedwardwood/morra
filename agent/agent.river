@@ -59,7 +59,7 @@ loki.relabel "container" {
     source_labels = ["__meta_docker_container_name"]
     regex= ".*-([^-]*)-.*"
     action= "replace"
-    target_label = "container"
+    target_label = "service_name"
   }
 }
 
@@ -85,10 +85,10 @@ loki.write "grafana_cloud_loki" {
 
 prometheus.scrape "default" {
   targets = [
-    {"__address__" = "python_player", service="python_player", app="morra"}, 
-    {"__address__" = "go_player", service="go_player", app="morra"}, 
-    {"__address__" = "node_player", service="node_player", app="morra"}, 
-    {"__address__" = "main", service="main_game", app="morra"},
+    {"__address__" = "python_player", service_name="python_player", app="morra"}, 
+    {"__address__" = "go_player", service_name="go_player", app="morra"}, 
+    {"__address__" = "node_player", service_name="node_player", app="morra"}, 
+    {"__address__" = "main", service_name="main_game", app="morra"},
   ]
   forward_to = [prometheus.remote_write.default.receiver]
 }
