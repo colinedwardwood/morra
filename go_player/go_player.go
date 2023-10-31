@@ -92,7 +92,7 @@ func initProvider() (func(context.Context) error, error) {
 	res, err := resource.New(ctx,
 		resource.WithOS(),
 		resource.WithProcess(),
-		resource.WithAttributes(semconv.ServiceName("go_player.bot")),
+		resource.WithAttributes(semconv.ServiceName("go_player")),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create resource: %w", err)
