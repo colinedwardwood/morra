@@ -8,5 +8,5 @@ docker push colinedwardwood/python_player
 docker build -t colinedwardwood/node_player ./node_player/.
 docker push colinedwardwood/node_player
 
-docker build -t colinedwardwood/main ./main/.
+docker build -t colinedwardwood/main ./game/.
 docker push colinedwardwood/main
