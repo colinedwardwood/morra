@@ -5,7 +5,7 @@
 // Traceability is done using automatic instrumentation of the express framework using the opentelemetry library
 
 // Global Variables
-const app_name = "node_player.bot" // This is the name of the application, used in logging and metrics
+const app_name = "node_player" // This is the name of the application, used in logging and metrics
 
 // Logging Setup
 // We will use the winston logging library to log to the console
