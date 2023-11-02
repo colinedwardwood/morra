@@ -10,3 +10,5 @@ docker push colinedwardwood/node_player
 
 docker build -t colinedwardwood/main ./game/.
 docker push colinedwardwood/main
+
+docker rmi -f $(docker images -f "dangling=true" -q)
