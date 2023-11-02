@@ -30,12 +30,12 @@ logger = logging.getLogger(__name__)
 RequestsInstrumentor().instrument()
 
 # MANUAL TRACING SETUP
-resource = Resource(attributes={ SERVICE_NAME: "morra-game" })
+resource = Resource(attributes={ SERVICE_NAME: "main_game" })
 provider = TracerProvider(resource=resource)
 processor = BatchSpanProcessor(OTLPSpanExporter(endpoint="agent:4317", insecure=True))
 provider.add_span_processor(processor)
 trace.set_tracer_provider(provider)
-tracer = trace.get_tracer("game.tracer")
+tracer = trace.get_tracer("main-game")
 
 # ARGUMENT PARSING
 logger.debug("Initializing application and parsing arguments") # Log the start of the application
@@ -80,49 +80,42 @@ else:
 if args.interactive:
     console = Console()
 
-class Player_Add_Req(BaseModel):
-    player_id: str
-    player_url: str
 
 class Player:
     def __init__(self, player_name, player_url) -> None:
-        with tracer.start_as_current_span("player_init") as player_init_span:
-            self.player_id = nanoid.generate(size=8)
-            self.player_name = player_name
-            self.player_url = player_url
-            self.score = 0
-            player_init_span.set_attribute("player.id", self.player_id)
-            player_init_span.set_attribute("player.name", self.player_name)
-            player_init_span.set_attribute("player.url", self.player_url)
-            return None
+        self.player_id = nanoid.generate(size=8)
+        self.player_name = player_name
+        self.player_url = player_url
+        self.score = 0
+        return None
 
-    @tracer.start_as_current_span("player_str")
+    # @tracer.start_as_current_span("player_str")
     def __str__(self) -> str:
         serial = self.player_name + " " + str(self.score)
         return serial
 
-    @tracer.start_as_current_span("player_win")
+    # @tracer.start_as_current_span("player_win")
     def win(self) -> None:
         self.score += 1
         return None
 
-    @tracer.start_as_current_span("player_get_url")
+    # @tracer.start_as_current_span("player_get_url")
     def get_url(self) -> str:
         return self.player_url
 
-    @tracer.start_as_current_span("player_get_name")
+    # @tracer.start_as_current_span("player_get_name")
     def get_name(self) -> str:
         return self.player_name
     
-    @tracer.start_as_current_span("player_get_score")
+    # @tracer.start_as_current_span("player_get_score")
     def get_score(self) -> int:
         return self.score
 
 class Game:
     def __init__(self) -> None:
+        self.game_id = uuid.uuid4()
         with tracer.start_as_current_span("game_init") as game_init_span:
             logger.debug("Initializing game")
-            self.game_id = uuid.uuid4()
             game_init_span.set_attribute("game.id", str(self.game_id))
             self.round_no = 0
             self.players = []
@@ -136,7 +129,7 @@ class Game:
             self.play()
             return None
     
-    @tracer.start_as_current_span("game_add_player")
+    # @tracer.start_as_current_span("game_add_player")
     def _add_player(self) -> None:
         logger.debug("Adding players to game")
         self.players.append(Player("python_player", "http://python_player:80"))
@@ -145,7 +138,7 @@ class Game:
         logger.debug("Players added to game")
         return None
     
-    @tracer.start_as_current_span("_game_print_game_summary")
+    # @tracer.start_as_current_span("_game_print_game_summary")
     def _print_game_summary(self) -> None:
         logger.debug("Printing game summary")
         panels = []  # create list of panels
@@ -159,33 +152,36 @@ class Game:
         console.print(Columns(panels))  # print the panels
         return None
 
-    @tracer.start_as_current_span("game_play")
     def play(self):
-        logger.debug("Starting game play")
+        with tracer.start_as_current_span("game_play") as game_play:
 
-        winner = False
-        while not winner:
-            self.round_no += 1
-            logger.debug("Trying to start round")
-            logger.debug("Round: " + str(self.round_no))
-            round = Round(self.game_id, self.round_no, self.players)
-            self.rounds.append(round)
-            logger.debug("Round complete")
+            logger.debug("Starting game play")
 
-            logger.debug("Checking for game winners")
-            for p in self.players:
-                if p.score == 3:
-                    logger.debug("Game won by " + p.get_name())
-                    if args.interactive:
-                        self._print_game_summary()
-                    winner = True
-                    break
-                else:
-                    logger.debug("No winner yet")
-        logger.debug("Game over")
-        return None
+            winner = False
+            while not winner:
+                self.round_no += 1
+                logger.debug("Trying to start round")
+                logger.debug("Round: " + str(self.round_no))
+                round = Round(self.game_id, self.round_no, self.players)
+                self.rounds.append(round)
+                logger.debug("Round complete")
 
-    @tracer.start_as_current_span("game_get_summary")
+                logger.debug("Checking for game winners")
+                for p in self.players:
+                    if p.score == 3:
+                        logger.debug("Game won by " + p.get_name())
+                        if args.interactive:
+                            self._print_game_summary()
+                        winner = True
+                        game_play.set_attribute("game.winner", p.player_name)
+
+                        break
+                    
+            logger.debug("Game over")
+
+            return None
+
+    # @tracer.start_as_current_span("game_get_summary")
     def get_summary(self) -> list:
         round_list = []
         for r in self.rounds:
@@ -226,15 +222,14 @@ class Round:
             return None
 
     def _take_turns(self) -> None:
-        with tracer.start_as_current_span("round_take_turns") as round_take_turns_span:
-            for i in range(0, self.player_count):
-                logger.debug("Requesting turn " + str(i+1))
-                turn = Turn(self.game_id, self.round_no, self.players[i])
-                self.turns.append(turn)
-                logger.debug("Turn " + str(i+1) + " complete")
-            return None
+        for i in range(0, self.player_count):
+            logger.debug("Requesting turn " + str(i+1))
+            turn = Turn(self.game_id, self.round_no, self.players[i])
+            self.turns.append(turn)
+            logger.debug("Turn " + str(i+1) + " complete")
+        return None
 
-    @tracer.start_as_current_span("round_total_throws")
+    # @tracer.start_as_current_span("round_total_throws")
     def _total_throws(self) -> None:
         logger.debug("Totalling throws")
         for t in self.turns:
@@ -242,7 +237,7 @@ class Round:
         logger.info("Throw total is " + str(self.throw_total))
         return None
 
-    @tracer.start_as_current_span("round_check_calls")
+    # @tracer.start_as_current_span("round_check_calls")
     def _check_calls(self) -> None:
         logger.debug("Checking calls against throw total.")
         for i in range(0, len(self.turns)):
@@ -251,7 +246,7 @@ class Round:
                 self.turns[i].get_player().win()
         return None
 
-    @tracer.start_as_current_span("round_get_round_dict")
+    # @tracer.start_as_current_span("round_get_round_dict")
     def get_round_dict(self) -> dict:
         turn_dicts = []
         for t in self.turns:
@@ -267,26 +262,24 @@ class Round:
         return self.throw_total
     
     def _post_summary(self) -> None:
-        with tracer.start_as_current_span("round_post_summary") as round_post_summary_span:
-            logger.debug("Posting round summary")
-            _round_record = self.get_round_dict()
-            for i in range(0, self.player_count):
-                logger.debug("Posting round record to player " + str(i+1))
-                try:
-                    self._response = requests.post(self.players[i].get_url()+"/record/", json=_round_record)
-                    _status_code = self._response.status_code
-                    _json_response = self._response.json()
-                except requests.exceptions.Timeout:
-                    # Maybe set up for a retry, or continue in a retry loop
-                    logger.error("Timeout error posting round record to player " + str(i+1))
-                except requests.exceptions.TooManyRedirects:
-                    # Tell the user their URL was bad and try a different one
-                    logger.error("Too many redirects error posting round record to player " + str(i+1))
-                except requests.exceptions.RequestException as e:
-                    # catastrophic error. bail.
-                    logger.error("Catastrophic error posting round record to player " + str(i+1))
-                    round_post_summary_span.set_attribute("Status", str(_status_code) + " " + _json_response["detail"])
-            return None
+        logger.debug("Posting round summary")
+        _round_record = self.get_round_dict()
+        for i in range(0, self.player_count):
+            logger.debug("Posting round record to player " + str(i+1))
+            try:
+                self._response = requests.post(self.players[i].get_url()+"/record/", json=_round_record)
+                _status_code = self._response.status_code
+                _json_response = self._response.json()
+            except requests.exceptions.Timeout:
+                # Maybe set up for a retry, or continue in a retry loop
+                logger.error("Timeout error posting round record to player " + str(i+1))
+            except requests.exceptions.TooManyRedirects:
+                # Tell the user their URL was bad and try a different one
+                logger.error("Too many redirects error posting round record to player " + str(i+1))
+            except requests.exceptions.RequestException as e:
+                # catastrophic error. bail.
+                logger.error("Catastrophic error posting round record to player " + str(i+1))
+        return None
 
     def _print_round_summary(self) -> None:
         r = self.get_round_dict()     # get round outcomes
@@ -308,7 +301,7 @@ class Turn:
     One turn corresponds to the play of a single player.
     init will start the turn and request the turn from the players api.
     """
-    @tracer.start_as_current_span("turn_init")
+    # @tracer.start_as_current_span("turn_init")
     def __init__(self, game_id, round_no, player) -> None:
         logger.debug("Initializing turn")
         self.game_id = game_id
@@ -326,20 +319,20 @@ class Turn:
         self.call = self._response["rescall"]
         return None
 
-    @tracer.start_as_current_span("turn_get_turn_dict")
+    # @tracer.start_as_current_span("turn_get_turn_dict")
     def get_turn_dict(self) -> dict:
         turn_dict = {"player_id": self.player.player_name, 
                      "throw": self.throw,
                      "call": self.call}
         return turn_dict
 
-    @tracer.start_as_current_span("turn_get_player")
+    # @tracer.start_as_current_span("turn_get_player")
     def get_player(self) -> Player:
         logger.debug("Getting turn player")
         return self.player
 
 
-@tracer.start_as_current_span("main")
+# @tracer.start_as_current_span("main")
 def main():
     """
     make a game object this will store the record of game

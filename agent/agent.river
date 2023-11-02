@@ -33,7 +33,7 @@ otelcol.processor.tail_sampling "default" {
   expected_new_traces_per_sec = 10
 
   policy {
-    name = "node-js-exclusion"
+    name = "node-js-exclusion-1"
     type = "string_attribute"
 
     string_attribute {
@@ -43,6 +43,18 @@ otelcol.processor.tail_sampling "default" {
       invert_match           = true
     }
   }
+
+  policy {
+      name = "node-js-exclusion-2"
+      type = "string_attribute"
+
+      string_attribute {
+        key                    = "name"
+        values                 = ["fs readFileSync"]
+        enabled_regex_matching = false
+        invert_match           = true
+      }
+    }
 
   output {
     traces = [otelcol.processor.batch.default.input]
