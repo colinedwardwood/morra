@@ -75,6 +75,7 @@ loki.relabel "container" {
   }
 }
 
+
 loki.source.docker "default" {
   host       = "unix:///var/run/docker.sock"
   targets    = discovery.docker.linux.targets 
